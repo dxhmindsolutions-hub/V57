@@ -1,4 +1,6 @@
-const categories=[
+/* ========= DATOS ========= */
+
+var categories = [
   "Aguas y refrescos",
   "Cerveza, vinos y licores",
   "Café y té",
@@ -12,80 +14,94 @@ const categories=[
   "Otros"
 ];
 
-let activeCat=categories[0];
-let items=JSON.parse(localStorage.items||'[]');
-let cart=JSON.parse(localStorage.cart||'[]');
-let deleteIndex=null, deleteType=null;
+var activeCat = categories[0];
+var items = JSON.parse(localStorage.items || "[]");
+var cart  = JSON.parse(localStorage.cart  || "[]");
+
+/* ========= UI ========= */
 
 function toggleDrawer(){
-  drawer.classList.toggle('open');
+  document.getElementById("drawer").classList.toggle("open");
 }
 
 function renderDrawer(){
-  drawer.innerHTML=categories.map(c=>`
-    <div class="drawer-item ${c===activeCat?'active':''}"
-      onclick="setCategory('${c}')">${c}</div>
-  `).join('');
+  var html = "";
+  for(var i=0;i<categories.length;i++){
+    var c = categories[i];
+    html += "<div class='drawer-item"+(c===activeCat?" active":"")+"' ";
+    html += "onclick=\"setCategory("+i+")\">";
+    html += c+"</div>";
+  }
+  document.getElementById("drawer").innerHTML = html;
 }
 
-function setCategory(c){
-  activeCat=c;
-  drawer.classList.remove('open');
+function setCategory(index){
+  activeCat = categories[index];
+  document.getElementById("drawer").classList.remove("open");
   renderDrawer();
   renderItems();
 }
 
 function showAddItem(){
-  addItemModal.classList.add('show');
+  document.getElementById("addItemModal").classList.add("show");
 }
 
 function hideAddItem(){
-  addItemModal.classList.remove('show');
+  document.getElementById("addItemModal").classList.remove("show");
 }
 
+/* ========= ITEMS ========= */
+
 function addItem(){
-  const name=itemName.value.trim();
-  if(!name)return;
+  var name = document.getElementById("itemName").value.trim();
+  var unit = document.getElementById("itemUnit").value;
+  if(!name) return;
 
-  items.push({
-    name,
-    cat:activeCat,
-    unit:itemUnit.value
-  });
+  items.push({ name:name, cat:activeCat, unit:unit });
+  localStorage.items = JSON.stringify(items);
 
-  localStorage.items=JSON.stringify(items);
-  itemName.value="";
+  document.getElementById("itemName").value="";
   hideAddItem();
   renderItems();
 }
 
 function renderItems(){
-  list.innerHTML=items
-    .filter(i=>i.cat===activeCat)
-    .map((i,idx)=>`
-      <div class="item">
-        <span>${i.name}</span>
-        <button onclick="addToCart(${idx})">+</button>
-      </div>
-    `).join('');
+  var html="";
+  var list = document.getElementById("list");
+
+  for(var i=0;i<items.length;i++){
+    if(items[i].cat===activeCat){
+      html += "<div class='item'>";
+      html += "<span>"+items[i].name+"</span>";
+      html += "<button onclick='addToCart("+i+")'>+</button>";
+      html += "</div>";
+    }
+  }
+  list.innerHTML = html;
 }
 
-function addToCart(idx){
-  const item=items.filter(i=>i.cat===activeCat)[idx];
-  const found=cart.find(c=>c.name===item.name);
+/* ========= CARRITO ========= */
+
+function addToCart(i){
+  var it = items[i];
+  var found = cart.find(function(c){ return c.name===it.name; });
   if(found) found.qty++;
-  else cart.push({name:item.name, qty:1, unit:item.unit});
-  localStorage.cart=JSON.stringify(cart);
+  else cart.push({name:it.name, qty:1, unit:it.unit});
+  localStorage.cart = JSON.stringify(cart);
   renderCart();
 }
 
 function renderCart(){
-  cartList.innerHTML=cart.map((c,i)=>`
-    <div class="cart-item">
-      <span>${c.name} (${c.qty} ${c.unit})</span>
-      <button onclick="removeCart(${i})">x</button>
-    </div>
-  `).join('');
+  var html="";
+  var list=document.getElementById("cartList");
+
+  for(var i=0;i<cart.length;i++){
+    html+="<div class='cart-item'>";
+    html+=cart[i].name+" ("+cart[i].qty+" "+cart[i].unit+") ";
+    html+="<button onclick='removeCart("+i+")'>x</button>";
+    html+="</div>";
+  }
+  list.innerHTML=html;
 }
 
 function removeCart(i){
@@ -96,71 +112,43 @@ function removeCart(i){
 
 function clearCart(){
   cart=[];
-  localStorage.cart='[]';
+  localStorage.cart="[]";
   renderCart();
 }
 
-function buildWhatsAppText(){
-  let txt="PEDIDO\n\n";
-  categories.forEach(cat=>{
-    cart.forEach(c=>{
-      const it=items.find(i=>i.name===c.name);
-      if(it && it.cat===cat){
-        txt+=`${c.name}: ${c.qty} ${c.unit}\n`;
-      }
-    });
-  });
-  return encodeURIComponent(txt);
-}
+/* ========= WHATSAPP ========= */
 
 function sendWhatsApp(){
-  window.open("https://wa.me/?text="+buildWhatsAppText());
+  var txt="PEDIDO\n\n";
+  for(var i=0;i<cart.length;i++){
+    txt+=cart[i].name+": "+cart[i].qty+" "+cart[i].unit+"\n";
+  }
+  window.open("https://wa.me/?text="+encodeURIComponent(txt));
 }
 
-/* =======================
-   IMPRESIÓN DE TICKET
-   ======================= */
+/* ========= IMPRESIÓN ========= */
 
 function printTicket(){
-  var win = window.open("", "PRINT", "width=300,height=600");
-  if(!win){ return; }
+  var win=window.open("","PRINT","width=300,height=600");
+  if(!win)return;
 
-  var now = new Date();
-  var fecha = now.toLocaleDateString("es-MX");
-  var hora  = now.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+  var d=new Date();
+  var html="<html><body style='width:80mm;font-family:monospace;font-size:14px'>";
+  html+="<h2 style='text-align:center'>PEDIDO</h2>";
+  html+="<div style='text-align:center;font-size:12px'>";
+  html+=d.toLocaleDateString()+" "+d.toLocaleTimeString()+"</div><hr>";
 
-  var html = "<html><head><title>Ticket</title>";
-  html += "<style>";
-  html += "body{width:80mm;margin:0;padding:8px;font-family:monospace;font-size:14px;}";
-  html += "h2{text-align:center;font-size:18px;margin:0 0 6px 0;}";
-  html += ".cat{font-weight:bold;margin-top:10px;}";
-  html += "</style></head><body>";
+  for(var i=0;i<cart.length;i++){
+    html+=cart[i].name+": "+cart[i].qty+" "+cart[i].unit+"<br>";
+  }
 
-  html += "<h2>PEDIDO</h2>";
-  html += "<div style='text-align:center;font-size:12px;'>";
-  html += fecha + " " + hora;
-  html += "</div><hr>";
-
-  categories.forEach(function(cat){
-    cart.forEach(function(c){
-      var it = items.find(function(i){ return i.name === c.name; });
-      if(it && it.cat === cat){
-        html += "- " + c.name + ": " + c.qty + " " + c.unit + "<br>";
-      }
-    });
-  });
-
-  html += "<br><br><br><br><br>";
-  html += "</body></html>";
-
-  win.document.open();
+  html+="<br><br><br></body></html>";
   win.document.write(html);
   win.document.close();
-  win.focus();
   win.print();
 }
 
-/* ======================= */
+/* ========= INIT ========= */
 
 renderDrawer();
 renderItems();
